@@ -1,21 +1,19 @@
 import logging
+import os
 import signal
 import time
-import os
-import socket
+from datetime import datetime
+from itertools import repeat
 from uuid import uuid4
 
-from datetime import datetime, timezone
-from itertools import repeat
-
+import dateutil.tz
+from redis import WatchError
 from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
 from rq.queue import Queue
 from rq.utils import backend_class, import_attribute
 
-from redis import WatchError
-
-from .utils import from_unix, to_unix, get_next_scheduled_time, rationalize_until
+from .utils import from_unix, get_next_scheduled_time, rationalize_until, to_unix
 
 logger = logging.getLogger(__name__)
 
@@ -216,7 +214,7 @@ class Scheduler(object):
         """
         Similar to ``enqueue_at``, but accepts a timedelta instead of datetime object.
         The job's scheduled execution time will be calculated by adding the timedelta
-        to datetime.utcnow().
+        to datetime.now(dateutil.tz.UTC).
         """
         timeout = kwargs.pop('timeout', None)
         job_id = kwargs.pop('job_id', None)
@@ -237,7 +235,7 @@ class Scheduler(object):
         if at_front:
             job.enqueue_at_front = True
         self.connection.zadd(self.scheduled_jobs_key,
-                              {job.id: to_unix(datetime.utcnow() + time_delta)})
+                              {job.id: to_unix(datetime.now(dateutil.tz.UTC) + time_delta)})
         return job
 
     def schedule(self, scheduled_time, func, args=None, kwargs=None,
@@ -288,7 +286,7 @@ class Scheduler(object):
 
         if repeat is not None:
             job.meta['repeat'] = int(repeat)
-        
+
         if at_front:
             job.enqueue_at_front = True
 
@@ -394,7 +392,7 @@ class Scheduler(object):
         # Turn the generator into a concrete list, so callers can test its length.
         return [
             job for job
-            in self.get_jobs(to_unix(datetime.now(timezone.utc)), with_times=with_times)
+            in self.get_jobs(to_unix(datetime.now(dateutil.tz.UTC)), with_times=with_times)
         ]
 
     def get_queue_for_job(self, job):
@@ -435,7 +433,7 @@ class Scheduler(object):
                 if job.meta['repeat'] == 0:
                     return
             self.connection.zadd(self.scheduled_jobs_key,
-                                  {job.id: to_unix(datetime.utcnow()) + int(interval)})
+                                  {job.id: to_unix(datetime.now(dateutil.tz.UTC)) + int(interval)})
         elif cron_string:
             # If this is a repeat job and counter has reached 0, don't repeat
             if repeat is not None:
@@ -454,7 +452,7 @@ class Scheduler(object):
         jobs = self.get_jobs_to_queue()
         for job in jobs:
             self.enqueue_job(job)
-        
+
         return jobs
 
     def heartbeat(self):

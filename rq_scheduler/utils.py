@@ -1,17 +1,16 @@
 import calendar
+import logging
+from datetime import datetime, timedelta
+
 import crontab
 import dateutil.tz
-
-from datetime import datetime, timedelta
-import logging
-
 from rq.logutils import ColorizingStreamHandler
 
 
 # from_unix from times.from_unix()
 def from_unix(string):
     """Convert a unix timestamp into a utc datetime"""
-    return datetime.utcfromtimestamp(float(string))
+    return datetime.fromtimestamp(float(string), tz=dateutil.tz.UTC)
 
 
 # to_unix from times.to_unix()
@@ -23,7 +22,7 @@ def to_unix(dt):
 def get_next_scheduled_time(cron_string, use_local_timezone=False):
     """Calculate the next scheduled time by creating a crontab object
     with a cron string"""
-    now = datetime.now()
+    now = datetime.now(tz=dateutil.tz.UTC)
     cron = crontab.CronTab(cron_string)
     next_time = cron.next(now=now, return_datetime=True)
     tz = dateutil.tz.tzlocal() if use_local_timezone else dateutil.tz.UTC
@@ -52,5 +51,5 @@ def rationalize_until(until=None):
     elif isinstance(until, datetime):
         until = to_unix(until)
     elif isinstance(until, timedelta):
-        until = to_unix((datetime.utcnow() + until))
+        until = to_unix((datetime.now(tz=dateutil.tz.UTC) + until))
     return until
