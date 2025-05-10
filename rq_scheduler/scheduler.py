@@ -489,7 +489,7 @@ class Scheduler(object):
                             self.log.info('RQ scheduler done, quitting')
                             break
                     else:
-                        self.log.warning('Lock already taken - skipping run')
+                        self.log.info('Job-scheduling lock already taken - skipping enqueue')
                 else:
                     # Still perform the heartbeat even if there weren't any jobs to enqueue.
                     self.heartbeat()
